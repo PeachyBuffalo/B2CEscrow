@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>B2C Escrow - Title Company Portal</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-content">
+        <div class="brand">
+          <h1>B2C Escrow</h1>
+          <span class="badge">Title Portal</span>
+        </div>
+        <nav class="nav-links">
+          <button type="button" class="nav-btn active" data-view="deals">Deal Rooms</button>
+          <button type="button" class="nav-btn" data-view="new-deal">New Deal</button>
+        </nav>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <!-- Deals List View -->
+      <section id="view-deals" class="view active">
+        <div class="view-header">
+          <h2>Deal Rooms</h2>
+          <div class="filter-bar">
+            <select id="status-filter">
+              <option value="">All Statuses</option>
+              <option value="draft">Draft</option>
+              <option value="pof_pending">POF Pending</option>
+              <option value="pof_verified">POF Verified</option>
+              <option value="escrow_created">Escrow Created</option>
+              <option value="funded">Funded</option>
+              <option value="closing">Closing</option>
+              <option value="closed">Closed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+            <button type="button" id="refresh-deals" class="btn-secondary">Refresh</button>
+          </div>
+        </div>
+        <div id="deals-table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Property</th>
+                <th>Status</th>
+                <th>Purchase Price</th>
+                <th>EMD (BTC)</th>
+                <th>Funding Deadline</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="deals-tbody"></tbody>
+          </table>
+          <div id="no-deals" class="empty-state hidden">
+            <p>No deals found. Create a new deal to get started.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- New Deal View -->
+      <section id="view-new-deal" class="view">
+        <div class="view-header">
+          <h2>Create New Deal Room</h2>
+        </div>
+        <form id="deal-form" class="form-card">
+          <div class="form-section">
+            <h3>Property Details</h3>
+            <div class="form-grid">
+              <label class="form-field">
+                <span class="field-label">Property Address <span class="required">*</span></span>
+                <input name="property_address" required placeholder="123 Main St, City, State ZIP" />
+              </label>
+              <label class="form-field">
+                <span class="field-label">Purchase Price (USD)</span>
+                <input name="purchase_price_usd" type="number" step="0.01" placeholder="500000.00" />
+              </label>
+            </div>
+          </div>
+          <div class="form-section">
+            <h3>Escrow Terms</h3>
+            <div class="form-grid">
+              <label class="form-field">
+                <span class="field-label">EMD Amount (BTC)</span>
+                <input name="emd_amount_btc" placeholder="0.5" />
+              </label>
+              <label class="form-field">
+                <span class="field-label">Funding Deadline</span>
+                <input name="deadline_funding" type="datetime-local" />
+              </label>
+              <label class="form-field">
+                <span class="field-label">Closing Deadline</span>
+                <input name="deadline_close" type="datetime-local" />
+              </label>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">Create Deal Room</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Deal Detail View -->
+      <section id="view-deal-detail" class="view">
+        <div class="view-header">
+          <button type="button" id="back-to-deals" class="btn-back">&larr; Back to Deals</button>
+          <div class="deal-header-info">
+            <h2 id="detail-property-address">-</h2>
+            <span id="detail-status" class="status-badge">-</span>
+          </div>
+        </div>
+
+        <!-- Workflow Progress -->
+        <div class="workflow-progress">
+          <div class="progress-step" data-step="draft">
+            <div class="step-indicator">1</div>
+            <span>Draft</span>
+          </div>
+          <div class="progress-connector"></div>
+          <div class="progress-step" data-step="pof_pending">
+            <div class="step-indicator">2</div>
+            <span>POF Pending</span>
+          </div>
+          <div class="progress-connector"></div>
+          <div class="progress-step" data-step="pof_verified">
+            <div class="step-indicator">3</div>
+            <span>POF Verified</span>
+          </div>
+          <div class="progress-connector"></div>
+          <div class="progress-step" data-step="escrow_created">
+            <div class="step-indicator">4</div>
+            <span>Escrow Created</span>
+          </div>
+          <div class="progress-connector"></div>
+          <div class="progress-step" data-step="funded">
+            <div class="step-indicator">5</div>
+            <span>Funded</span>
+          </div>
+          <div class="progress-connector"></div>
+          <div class="progress-step" data-step="closing">
+            <div class="step-indicator">6</div>
+            <span>Closing</span>
+          </div>
+          <div class="progress-connector"></div>
+          <div class="progress-step" data-step="closed">
+            <div class="step-indicator">7</div>
+            <span>Closed</span>
+          </div>
+        </div>
+
+        <div class="detail-layout">
+          <!-- Left Column: Deal Info & Parties -->
+          <div class="detail-column">
+            <div class="card">
+              <div class="card-header">
+                <h3>Deal Information</h3>
+              </div>
+              <div class="card-body">
+                <dl class="info-list">
+                  <dt>Deal ID</dt>
+                  <dd id="detail-id" class="monospace">-</dd>
+                  <dt>Purchase Price</dt>
+                  <dd id="detail-price">-</dd>
+                  <dt>EMD Amount</dt>
+                  <dd id="detail-emd">-</dd>
+                  <dt>Funding Deadline</dt>
+                  <dd id="detail-funding-deadline">-</dd>
+                  <dt>Closing Deadline</dt>
+                  <dd id="detail-close-deadline">-</dd>
+                  <dt>Created</dt>
+                  <dd id="detail-created">-</dd>
+                </dl>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <h3>Parties</h3>
+                <button type="button" id="add-party-btn" class="btn-small">+ Add Party</button>
+              </div>
+              <div class="card-body">
+                <div id="parties-list" class="parties-list"></div>
+                <form id="party-form" class="inline-form hidden">
+                  <select name="role" required>
+                    <option value="">Select Role</option>
+                    <option value="buyer">Buyer</option>
+                    <option value="seller">Seller</option>
+                    <option value="title">Title/Escrow</option>
+                  </select>
+                  <input name="display_name" placeholder="Name" required />
+                  <input name="email" type="email" placeholder="Email" required />
+                  <button type="submit" class="btn-small btn-primary">Add</button>
+                  <button type="button" id="cancel-party" class="btn-small btn-secondary">Cancel</button>
+                </form>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <h3>Audit Trail</h3>
+              </div>
+              <div class="card-body">
+                <div id="audit-list" class="audit-list"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column: Actions -->
+          <div class="detail-column">
+            <!-- POF Section -->
+            <div class="card action-card" id="pof-section">
+              <div class="card-header">
+                <h3>Proof of Funds</h3>
+                <span id="pof-status" class="mini-badge">-</span>
+              </div>
+              <div class="card-body">
+                <div id="pof-info" class="hidden">
+                  <dl class="info-list compact">
+                    <dt>Challenge</dt>
+                    <dd id="pof-challenge" class="monospace small">-</dd>
+                    <dt>Verified</dt>
+                    <dd id="pof-verified">-</dd>
+                  </dl>
+                </div>
+                <form id="pof-request-form" class="action-form">
+                  <h4>Request POF</h4>
+                  <input name="buyer_name" placeholder="Buyer Name" />
+                  <input name="requested_amount_btc" placeholder="Amount (BTC)" />
+                  <button type="submit" class="btn-primary">Create POF Request</button>
+                </form>
+                <form id="pof-attest-form" class="action-form hidden">
+                  <h4>Submit POF Attestation</h4>
+                  <select name="party_id" id="pof-party-select" required>
+                    <option value="">Select Party</option>
+                  </select>
+                  <select name="proof_type" required>
+                    <option value="">Proof Type</option>
+                    <option value="bip322">BIP-322</option>
+                    <option value="legacy">Legacy Signmessage</option>
+                    <option value="utxo">UTXO Proof</option>
+                  </select>
+                  <input name="address_or_descriptor" placeholder="Address or Descriptor" />
+                  <textarea name="signature" placeholder="Signature" rows="2"></textarea>
+                  <input name="utxos_total_btc" placeholder="Total UTXOs (BTC)" />
+                  <button type="submit" class="btn-primary">Submit Attestation</button>
+                </form>
+                <div id="pof-verify-section" class="hidden">
+                  <button type="button" id="verify-pof-btn" class="btn-primary">Verify POF</button>
+                  <button type="button" id="download-pof-btn" class="btn-secondary">Download POF Packet</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Escrow Section -->
+            <div class="card action-card" id="escrow-section">
+              <div class="card-header">
+                <h3>Escrow</h3>
+                <span id="escrow-status" class="mini-badge">-</span>
+              </div>
+              <div class="card-body">
+                <div id="escrow-info" class="hidden">
+                  <dl class="info-list compact">
+                    <dt>Address</dt>
+                    <dd id="escrow-address" class="monospace small">-</dd>
+                    <dt>Policy Type</dt>
+                    <dd id="escrow-policy-type">-</dd>
+                    <dt>Descriptor</dt>
+                    <dd id="escrow-descriptor" class="monospace small">-</dd>
+                  </dl>
+                </div>
+                <form id="escrow-policy-form" class="action-form">
+                  <h4>Create Escrow Policy</h4>
+                  <input name="descriptor" placeholder="Descriptor (e.g., wsh(multi(2,...)))" />
+                  <input name="address" placeholder="Escrow Address (bc1q...)" />
+                  <input name="refund_timelock" type="datetime-local" placeholder="Refund Timelock" />
+                  <button type="submit" class="btn-primary">Create Policy</button>
+                </form>
+                <div id="escrow-funding-section" class="hidden">
+                  <h4>Record Funding</h4>
+                  <form id="funding-form" class="action-form">
+                    <input name="txid" placeholder="Transaction ID" required />
+                    <input name="amount_btc" placeholder="Amount (BTC)" required />
+                    <input name="confirmations" type="number" value="0" placeholder="Confirmations" />
+                    <button type="submit" class="btn-primary">Record Funding</button>
+                  </form>
+                </div>
+                <div id="funding-info" class="hidden">
+                  <dl class="info-list compact">
+                    <dt>TXID</dt>
+                    <dd id="funding-txid" class="monospace small">-</dd>
+                    <dt>Amount</dt>
+                    <dd id="funding-amount">-</dd>
+                    <dt>Confirmations</dt>
+                    <dd id="funding-confirmations">-</dd>
+                  </dl>
+                  <button type="button" id="download-receipt-btn" class="btn-secondary">Download Receipt</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- PSBT Section -->
+            <div class="card action-card" id="psbt-section">
+              <div class="card-header">
+                <h3>Signing Ceremony</h3>
+                <span id="psbt-status" class="mini-badge">-</span>
+              </div>
+              <div class="card-body">
+                <div id="psbt-list"></div>
+                <form id="psbt-form" class="action-form">
+                  <h4>Create PSBT</h4>
+                  <select name="type" required>
+                    <option value="">Select Type</option>
+                    <option value="release">Release (Close Deal)</option>
+                    <option value="refund">Refund (Cancel Deal)</option>
+                    <option value="closing">Closing</option>
+                  </select>
+                  <select name="created_by_party_id" id="psbt-party-select" required>
+                    <option value="">Created By</option>
+                  </select>
+                  <textarea name="psbt_base64" placeholder="PSBT (Base64)" rows="3"></textarea>
+                  <button type="submit" class="btn-primary">Create PSBT</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container"></div>
+
+    <!-- Modal -->
+    <div id="modal-overlay" class="modal-overlay hidden">
+      <div class="modal">
+        <div class="modal-header">
+          <h3 id="modal-title">Modal</h3>
+          <button type="button" class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body" id="modal-body"></div>
+      </div>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
