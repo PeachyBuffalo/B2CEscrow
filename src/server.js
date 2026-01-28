@@ -575,12 +575,16 @@ app.post("/api/psbt/:id/finalize", asyncHandler(async (req, res) => {
     res.status(404).json({ error: "PSBT session not found" });
     return;
   }
+  const txid = (req.body.txid || "").trim();
+  if (!txid) {
+    res.status(400).json({ error: "txid is required to finalize a PSBT" });
+    return;
+  }
   const next = { ...session, status: "finalized" };
   await query(`UPDATE psbt_sessions SET status = $2 WHERE id = $1`, [
     session.id,
     next.status
   ]);
-  // Transition deal status based on PSBT type
   const dealResult = await query("SELECT * FROM deals WHERE id = $1", [session.deal_id]);
   const deal = dealResult.rows[0];
   if (deal && deal.status === "closing") {
@@ -591,7 +595,6 @@ app.post("/api/psbt/:id/finalize", asyncHandler(async (req, res) => {
       nowIso()
     ]);
   }
-  const txid = req.body.txid || "txid_placeholder";
   await addAudit(session.deal_id, "psbt.finalized", { session: next }, req.body.party_id, txid);
   res.json({ ...next, broadcast_txid: txid });
 }));
