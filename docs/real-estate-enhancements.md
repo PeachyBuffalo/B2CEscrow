@@ -80,6 +80,9 @@ Contingency {
 Real estate transactions require numerous documents:
 
 ```
+#The document needs secondary pk for for sensitive information
+#such as personal names, $$$, public keys
+#with shielded and decrypted features
 Document {
   id: uuid
   deal_id: uuid
@@ -110,7 +113,7 @@ DocumentSignature {
 ### 5. Contract & Amendments (Missing)
 
 Purchase agreements change during negotiation:
-
+#Addendum feature for agents versus informal for 'handshake' deals
 ```
 Contract {
   id: uuid

@@ -15,6 +15,14 @@ db-up:
 	else \
 		docker run --name b2c-escrow-postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=b2c_escrow -p 5432:5432 -d postgres:16; \
 	fi
+	@echo "Waiting for Postgres to be ready..."
+	@for i in 1 2 3 4 5 6 7 8 9 10 11 12; do \
+		if docker exec b2c-escrow-postgres pg_isready -U postgres -d b2c_escrow >/dev/null 2>&1; then \
+			echo "Postgres is ready"; \
+			break; \
+		fi; \
+		sleep 1; \
+	done
 
 db-down:
 	@command -v docker >/dev/null 2>&1 || { echo "Docker is required for db-down"; exit 1; }
