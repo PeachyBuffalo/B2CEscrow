@@ -6,7 +6,26 @@ const pool = new Pool({
 
 const query = (text, params) => pool.query(text, params);
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const waitForDb = async () => {
+  const attempts = Number(process.env.DB_RETRY_ATTEMPTS || 12);
+  const delayMs = Number(process.env.DB_RETRY_DELAY_MS || 500);
+  let lastError;
+  for (let i = 1; i <= attempts; i += 1) {
+    try {
+      await query("SELECT 1");
+      return;
+    } catch (error) {
+      lastError = error;
+      await sleep(delayMs);
+    }
+  }
+  throw lastError;
+};
+
 const initDb = async () => {
+  await waitForDb();
   await query(`
     CREATE TABLE IF NOT EXISTS deals (
       id uuid PRIMARY KEY,
