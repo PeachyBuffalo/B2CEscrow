@@ -908,6 +908,208 @@ app.patch("/api/milestones/:id", asyncHandler(async (req, res) => {
   res.json(next);
 }));
 
+// Properties
+app.post("/api/deals/:id/properties", asyncHandler(async (req, res) => {
+  const deal = await getDealOr404(req, res);
+  if (!deal) return;
+  const property = {
+    id: uuidv4(),
+    deal_id: deal.id,
+    address_street: req.body.address_street,
+    address_city: req.body.address_city,
+    address_state: req.body.address_state,
+    address_zip: req.body.address_zip,
+    county: req.body.county || null,
+    legal_description: req.body.legal_description || null,
+    parcel_number: req.body.parcel_number || null,
+    property_type: req.body.property_type || null,
+    year_built: req.body.year_built || null,
+    lot_size_sqft: req.body.lot_size_sqft || null,
+    living_area_sqft: req.body.living_area_sqft || null,
+    hoa_name: req.body.hoa_name || null,
+    hoa_monthly_fee: req.body.hoa_monthly_fee || null,
+    created_at: nowIso()
+  };
+  await query(
+    `INSERT INTO properties (id, deal_id, address_street, address_city, address_state, address_zip, county, legal_description, parcel_number, property_type, year_built, lot_size_sqft, living_area_sqft, hoa_name, hoa_monthly_fee, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+    [property.id, property.deal_id, property.address_street, property.address_city, property.address_state, property.address_zip, property.county, property.legal_description, property.parcel_number, property.property_type, property.year_built, property.lot_size_sqft, property.living_area_sqft, property.hoa_name, property.hoa_monthly_fee, property.created_at]
+  );
+  await addAudit(deal.id, "property.added", { property });
+  res.status(201).json(property);
+}));
+
+app.get("/api/deals/:id/properties", asyncHandler(async (req, res) => {
+  const deal = await getDealOr404(req, res);
+  if (!deal) return;
+  const result = await query(
+    "SELECT * FROM properties WHERE deal_id = $1 ORDER BY created_at DESC LIMIT 1",
+    [deal.id]
+  );
+  res.json(result.rows[0] || null);
+}));
+
+app.patch("/api/properties/:id", asyncHandler(async (req, res) => {
+  const result = await query("SELECT * FROM properties WHERE id = $1", [req.params.id]);
+  const property = result.rows[0];
+  if (!property) {
+    res.status(404).json({ error: "Property not found" });
+    return;
+  }
+  const next = {
+    ...property,
+    address_street: req.body.address_street || property.address_street,
+    address_city: req.body.address_city || property.address_city,
+    address_state: req.body.address_state || property.address_state,
+    address_zip: req.body.address_zip || property.address_zip,
+    county: req.body.county ?? property.county,
+    legal_description: req.body.legal_description ?? property.legal_description,
+    parcel_number: req.body.parcel_number ?? property.parcel_number,
+    property_type: req.body.property_type ?? property.property_type,
+    year_built: req.body.year_built ?? property.year_built,
+    lot_size_sqft: req.body.lot_size_sqft ?? property.lot_size_sqft,
+    living_area_sqft: req.body.living_area_sqft ?? property.living_area_sqft,
+    hoa_name: req.body.hoa_name ?? property.hoa_name,
+    hoa_monthly_fee: req.body.hoa_monthly_fee ?? property.hoa_monthly_fee
+  };
+  await query(
+    `UPDATE properties SET address_street=$2, address_city=$3, address_state=$4, address_zip=$5, county=$6, legal_description=$7, parcel_number=$8, property_type=$9, year_built=$10, lot_size_sqft=$11, living_area_sqft=$12, hoa_name=$13, hoa_monthly_fee=$14 WHERE id=$1`,
+    [property.id, next.address_street, next.address_city, next.address_state, next.address_zip, next.county, next.legal_description, next.parcel_number, next.property_type, next.year_built, next.lot_size_sqft, next.living_area_sqft, next.hoa_name, next.hoa_monthly_fee]
+  );
+  await addAudit(property.deal_id, "property.updated", { before: property, after: next });
+  res.json(next);
+}));
+
+// Contracts
+app.post("/api/deals/:id/contracts", asyncHandler(async (req, res) => {
+  const deal = await getDealOr404(req, res);
+  if (!deal) return;
+  // Get the latest version number
+  const versionResult = await query(
+    "SELECT COALESCE(MAX(version), 0) + 1 as next_version FROM contracts WHERE deal_id = $1",
+    [deal.id]
+  );
+  const nextVersion = versionResult.rows[0].next_version;
+  const contract = {
+    id: uuidv4(),
+    deal_id: deal.id,
+    version: nextVersion,
+    purchase_price_usd: req.body.purchase_price_usd || null,
+    emd_amount_usd: req.body.emd_amount_usd || null,
+    emd_amount_btc: req.body.emd_amount_btc || null,
+    closing_date: req.body.closing_date || null,
+    possession_date: req.body.possession_date || null,
+    terms_json: req.body.terms_json || null,
+    status: "draft",
+    created_at: nowIso()
+  };
+  await query(
+    `INSERT INTO contracts (id, deal_id, version, purchase_price_usd, emd_amount_usd, emd_amount_btc, closing_date, possession_date, terms_json, status, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+    [contract.id, contract.deal_id, contract.version, contract.purchase_price_usd, contract.emd_amount_usd, contract.emd_amount_btc, contract.closing_date, contract.possession_date, contract.terms_json, contract.status, contract.created_at]
+  );
+  await addAudit(deal.id, "contract.created", { contract });
+  res.status(201).json(contract);
+}));
+
+app.get("/api/deals/:id/contracts", asyncHandler(async (req, res) => {
+  const deal = await getDealOr404(req, res);
+  if (!deal) return;
+  const result = await query(
+    "SELECT * FROM contracts WHERE deal_id = $1 ORDER BY version DESC",
+    [deal.id]
+  );
+  res.json(result.rows);
+}));
+
+app.patch("/api/contracts/:id", asyncHandler(async (req, res) => {
+  const result = await query("SELECT * FROM contracts WHERE id = $1", [req.params.id]);
+  const contract = result.rows[0];
+  if (!contract) {
+    res.status(404).json({ error: "Contract not found" });
+    return;
+  }
+  const next = {
+    ...contract,
+    status: req.body.status || contract.status,
+    closing_date: req.body.closing_date ?? contract.closing_date,
+    possession_date: req.body.possession_date ?? contract.possession_date,
+    terms_json: req.body.terms_json ?? contract.terms_json
+  };
+  await query(
+    `UPDATE contracts SET status=$2, closing_date=$3, possession_date=$4, terms_json=$5 WHERE id=$1`,
+    [contract.id, next.status, next.closing_date, next.possession_date, next.terms_json]
+  );
+  await addAudit(contract.deal_id, "contract.updated", { before: contract, after: next });
+  res.json(next);
+}));
+
+// Amendments
+app.post("/api/deals/:id/amendments", asyncHandler(async (req, res) => {
+  const deal = await getDealOr404(req, res);
+  if (!deal) return;
+  // Get the latest amendment number
+  const numResult = await query(
+    "SELECT COALESCE(MAX(amendment_number), 0) + 1 as next_num FROM amendments WHERE deal_id = $1",
+    [deal.id]
+  );
+  const nextNum = numResult.rows[0].next_num;
+  const amendment = {
+    id: uuidv4(),
+    deal_id: deal.id,
+    contract_id: req.body.contract_id || null,
+    amendment_number: nextNum,
+    description: req.body.description || null,
+    changes_json: req.body.changes_json || null,
+    status: "proposed",
+    proposed_by_party_id: req.body.proposed_by_party_id || null,
+    accepted_at: null,
+    created_at: nowIso()
+  };
+  await query(
+    `INSERT INTO amendments (id, deal_id, contract_id, amendment_number, description, changes_json, status, proposed_by_party_id, accepted_at, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+    [amendment.id, amendment.deal_id, amendment.contract_id, amendment.amendment_number, amendment.description, amendment.changes_json, amendment.status, amendment.proposed_by_party_id, amendment.accepted_at, amendment.created_at]
+  );
+  await addAudit(deal.id, "amendment.proposed", { amendment }, amendment.proposed_by_party_id);
+  res.status(201).json(amendment);
+}));
+
+app.get("/api/deals/:id/amendments", asyncHandler(async (req, res) => {
+  const deal = await getDealOr404(req, res);
+  if (!deal) return;
+  const result = await query(
+    "SELECT * FROM amendments WHERE deal_id = $1 ORDER BY amendment_number ASC",
+    [deal.id]
+  );
+  res.json(result.rows);
+}));
+
+app.patch("/api/amendments/:id", asyncHandler(async (req, res) => {
+  const result = await query("SELECT * FROM amendments WHERE id = $1", [req.params.id]);
+  const amendment = result.rows[0];
+  if (!amendment) {
+    res.status(404).json({ error: "Amendment not found" });
+    return;
+  }
+  const next = { ...amendment };
+  if (req.body.status === "accepted") {
+    next.status = "accepted";
+    next.accepted_at = nowIso();
+  } else if (req.body.status === "rejected") {
+    next.status = "rejected";
+  }
+  if (req.body.description) next.description = req.body.description;
+  if (req.body.changes_json) next.changes_json = req.body.changes_json;
+
+  await query(
+    `UPDATE amendments SET status=$2, accepted_at=$3, description=$4, changes_json=$5 WHERE id=$1`,
+    [amendment.id, next.status, next.accepted_at, next.description, next.changes_json]
+  );
+  await addAudit(amendment.deal_id, "amendment.updated", { before: amendment, after: next });
+  res.json(next);
+}));
+
 // Create default milestones for a deal
 app.post("/api/deals/:id/milestones/defaults", asyncHandler(async (req, res) => {
   const deal = await getDealOr404(req, res);
