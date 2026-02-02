@@ -211,6 +211,72 @@ const initDb = async () => {
       created_at timestamptz NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS properties (
+      id uuid PRIMARY KEY,
+      deal_id uuid REFERENCES deals(id) ON DELETE CASCADE,
+      address_street text NOT NULL,
+      address_city text NOT NULL,
+      address_state text NOT NULL,
+      address_zip text NOT NULL,
+      county text,
+      legal_description text,
+      parcel_number text,
+      property_type text,
+      year_built integer,
+      lot_size_sqft numeric,
+      living_area_sqft numeric,
+      hoa_name text,
+      hoa_monthly_fee numeric,
+      created_at timestamptz NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS contracts (
+      id uuid PRIMARY KEY,
+      deal_id uuid REFERENCES deals(id) ON DELETE CASCADE,
+      version integer NOT NULL DEFAULT 1,
+      purchase_price_usd numeric,
+      emd_amount_usd numeric,
+      emd_amount_btc text,
+      closing_date timestamptz,
+      possession_date timestamptz,
+      terms_json jsonb,
+      status text NOT NULL DEFAULT 'draft',
+      created_at timestamptz NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS amendments (
+      id uuid PRIMARY KEY,
+      deal_id uuid REFERENCES deals(id) ON DELETE CASCADE,
+      contract_id uuid REFERENCES contracts(id) ON DELETE CASCADE,
+      amendment_number integer NOT NULL,
+      description text,
+      changes_json jsonb,
+      status text NOT NULL DEFAULT 'proposed',
+      proposed_by_party_id uuid REFERENCES parties(id) ON DELETE SET NULL,
+      accepted_at timestamptz,
+      created_at timestamptz NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS notifications (
+      id uuid PRIMARY KEY,
+      deal_id uuid REFERENCES deals(id) ON DELETE CASCADE,
+      party_id uuid REFERENCES parties(id) ON DELETE SET NULL,
+      type text NOT NULL,
+      title text NOT NULL,
+      message text,
+      read_at timestamptz,
+      created_at timestamptz NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS messages (
+      id uuid PRIMARY KEY,
+      deal_id uuid REFERENCES deals(id) ON DELETE CASCADE,
+      from_party_id uuid REFERENCES parties(id) ON DELETE SET NULL,
+      message text NOT NULL,
+      attachments jsonb,
+      created_at timestamptz NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_parties_deal_id ON parties(deal_id);
     CREATE INDEX IF NOT EXISTS idx_contingencies_deal_id ON contingencies(deal_id);
     CREATE INDEX IF NOT EXISTS idx_documents_deal_id ON documents(deal_id);
@@ -223,6 +289,11 @@ const initDb = async () => {
     CREATE INDEX IF NOT EXISTS idx_escrow_fundings_deal_id ON escrow_fundings(deal_id);
     CREATE INDEX IF NOT EXISTS idx_psbt_sessions_deal_id ON psbt_sessions(deal_id);
     CREATE INDEX IF NOT EXISTS idx_audit_events_deal_id ON audit_events(deal_id);
+    CREATE INDEX IF NOT EXISTS idx_properties_deal_id ON properties(deal_id);
+    CREATE INDEX IF NOT EXISTS idx_contracts_deal_id ON contracts(deal_id);
+    CREATE INDEX IF NOT EXISTS idx_amendments_deal_id ON amendments(deal_id);
+    CREATE INDEX IF NOT EXISTS idx_notifications_deal_id ON notifications(deal_id);
+    CREATE INDEX IF NOT EXISTS idx_messages_deal_id ON messages(deal_id);
   `);
 };
 
